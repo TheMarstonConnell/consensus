@@ -76,7 +76,7 @@ def get_bonded():
 
 def strip_emoji_non_ascii(moniker):
     moniker = "".join([letter for letter in moniker if letter.isascii()])
-    return moniker[:15].strip().lstrip()
+    return moniker.strip().lstrip()
 
 
 def get_validators_rest(proposer=None):
@@ -88,8 +88,8 @@ def get_validators_rest(proposer=None):
 
         validator_vp = int(validator["tokens"])
         vp_percentage = round((100 / bonded_tokens) * validator_vp, 3)
-        moniker = validator["description"]["moniker"][:15].strip()
-        moniker = strip_emoji_non_ascii(moniker)
+        moniker = validator["description"]["moniker"].strip()
+        moniker = strip_emoji_non_ascii(moniker)[:15]
         validator_dict[validator["consensus_pubkey"]["key"]] = {
                                  "moniker": moniker,
                                  "address": validator["operator_address"],
@@ -126,15 +126,17 @@ def list_columns(obj, cols=3, columnwise=True, gap=8):
     sobj = [str(item) for item in obj]
     if cols > len(sobj): cols = len(sobj)
     max_len = max([len(item) for item in sobj])
-    if columnwise: cols = int(math.ceil(float(len(sobj)) / float(cols)))
-    plist = [sobj[i: i+cols] for i in range(0, len(sobj), cols)]
     if columnwise:
-        if not len(plist[-1]) == cols:
-            plist[-1].extend(['']*(len(sobj) - len(plist[-1])))
+        num_rows = int(math.ceil(float(len(sobj)) / float(cols)))
+        plist = [sobj[i: i+num_rows] for i in range(0, len(sobj), num_rows)]
+        if not len(plist[-1]) == num_rows:
+            plist[-1].extend(['']*(num_rows - len(plist[-1])))
         plist = zip(*plist)
+    else:
+        plist = [sobj[i: i+cols] for i in range(0, len(sobj), cols)]
     printer = '\n'.join([
-        ''.join([c.ljust(max_len + gap) for c in p])
-        for p in plist])
+        ''.join([c.ljust(max_len + gap) for c in p]).rstrip()
+        for p in plist if any(c.strip() for c in p)])
     return printer
 
 
