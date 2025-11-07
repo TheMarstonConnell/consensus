@@ -76,7 +76,8 @@ def get_bonded():
 
 def strip_emoji_non_ascii(moniker):
     moniker = "".join([letter for letter in moniker if letter.isascii()])
-    return moniker.strip().lstrip()
+    moniker = ' '.join(moniker.split())
+    return moniker.strip().lstrip()[:15]
 
 
 def get_validators_rest(proposer=None):
@@ -89,7 +90,7 @@ def get_validators_rest(proposer=None):
         validator_vp = int(validator["tokens"])
         vp_percentage = round((100 / bonded_tokens) * validator_vp, 3)
         moniker = validator["description"]["moniker"].strip()
-        moniker = strip_emoji_non_ascii(moniker)[:15]
+        moniker = strip_emoji_non_ascii(moniker)
         validator_dict[validator["consensus_pubkey"]["key"]] = {
                                  "moniker": moniker,
                                  "address": validator["operator_address"],
