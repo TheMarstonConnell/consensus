@@ -5,6 +5,7 @@ from json import loads
 import math
 from collections import defaultdict
 import os
+import time
 
 
 ERR_MSG = f"\033[91m[ERR] API endpoint unreachable: _err_api_\n" \
@@ -13,8 +14,8 @@ ERR_MSG = f"\033[91m[ERR] API endpoint unreachable: _err_api_\n" \
           f"Bugreports github: https://github.com/Northa/consensus/\033[0m"
 
 # default ports
-RPC = "http://127.0.0.1:26657"
-REST = "http://127.0.0.1:1317"
+RPC = os.getenv("RPC", "http://127.0.0.1:26657")
+REST = os.getenv("REST", "http://127.0.0.1:1317")
 
 def handle_request(api: str, pattern: str):
     try:
@@ -27,8 +28,8 @@ def handle_request(api: str, pattern: str):
         exit(f"{ERR_MSG}\n{err}")
 
 
-# def clear_cls():
-#     os.system('cls' if os.name=='nt' else 'clear')
+def clear_cls():
+    os.system('cls' if os.name=='nt' else 'clear')
 
 
 def get_validator_votes():
@@ -39,12 +40,13 @@ def get_validator_votes():
     cur_round = STATE['result']['round_state']['round']
     chain = get_chain_id()
     proposer = STATE['result']['round_state']['validators']['proposer']['pub_key']['value']
+    header_info = ""
     for r_ound in votes:
         if int(r_ound['round']) != cur_round:
             continue
 
         if float(r_ound['prevotes_bit_array'].split('=')[-1].strip()) > 0:
-            print(F"\nChain-id: {chain}\nHeight: {height} Round: {r_ound['round']} step: {step}\nprevotes_bit_array: {r_ound['prevotes_bit_array'].split('} ')[-1]}")
+            header_info = F"\nChain-id: {chain}\nHeight: {height} Round: {r_ound['round']} step: {step}\nprevotes_bit_array: {r_ound['prevotes_bit_array'].split('} ')[-1]}"
             for prevote in r_ound['prevotes']:
                 try:
                     app_hash = prevote.split("Prevote) ")[1].split(" ")[0][:3]
@@ -54,7 +56,7 @@ def get_validator_votes():
                 except IndexError:
                     validator_votes.append(prevote)
     if len(validator_votes) > 0:
-        return validator_votes, proposer
+        return validator_votes, proposer, header_info
     exit(f"height: {height} round: {cur_round} No votes found. Try in a few seconds")
 
 
@@ -102,7 +104,7 @@ def get_validators_rest(proposer=None):
 
 
 def merge():
-    votes, proposer = get_validator_votes()
+    votes, proposer, header_info = get_validator_votes()
     validators = get_validators()
     votes_and_vals = list(zip(votes, validators))
     # print(votes_and_vals)
@@ -115,7 +117,7 @@ def merge():
             validator_rest[v[2]]['voted'] = k
             final_list.append(validator_rest[v[2]])
 
-    return final_list, proposer
+    return final_list, proposer, header_info
 
 
 def list_columns(obj, cols=3, columnwise=True, gap=8):
@@ -202,7 +204,7 @@ def calculate_colums(result):
 
 
 def main(STATE):
-    validators, proposer = merge()
+    validators, proposer, header_info = merge()
     online_vals = 0
     votes = defaultdict(float)
     for num, val in enumerate(validators):
@@ -211,26 +213,37 @@ def main(STATE):
         else:
             online_vals += 1
             votes[val['voted'][1]] += val['voting_power_perc1']
-    print(f"Proposer: {proposer}")
-    print('\nConsensus:')
+    
+    output = []
+    if header_info:
+        output.append(header_info)
+    output.append(f"Proposer: {proposer}")
+    output.append('\nConsensus:')
     sum_vp = 0
     for k, v in votes.items():
         if not 'nil' in k:
             sum_vp += round(v,2)
-            print(f"{f'hash {k}'}: {round(v,2):.2f}%")
+            output.append(f"{f'hash {k}'}: {round(v,2):.2f}%")
         else:
-            print(f"{k}: {round(v,2):.2f}%")
+            output.append(f"{k}: {round(v,2):.2f}%")
 
-    print(f"\n{'Online_vp':<17}: {sum_vp:.2f}%")
-    print(f"Online validators: {online_vals}/{len(validators)}\n")
+    output.append(f"\n{'Online_vp':<17}: {sum_vp:.2f}%")
+    output.append(f"Online validators: {online_vals}/{len(validators)}\n")
     # get_evidence(STATE['result']['round_state']['height/round/step'])
     result = colorize_output(validators)
-    print(calculate_colums(result))
+    output.append(calculate_colums(result))
+    
+    return '\n'.join(output)
 
 
 if __name__ == '__main__':
     try:
-        STATE = handle_request(RPC, 'dump_consensus_state')
-        exit(main(STATE))
+        while True:
+            STATE = handle_request(RPC, 'dump_consensus_state')
+            output = main(STATE)
+            clear_cls()
+            print(output)
+            time.sleep(1)
     except KeyboardInterrupt:
-        exit(1)
+        clear_cls()
+        exit(0)
