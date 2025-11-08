@@ -57,7 +57,7 @@ def get_validator_votes():
                     validator_votes.append(prevote)
     if len(validator_votes) > 0:
         return validator_votes, proposer, header_info
-    exit(f"height: {height} round: {cur_round} No votes found. Try in a few seconds")
+    return [], proposer, ""
 
 
 def get_validators():
@@ -113,10 +113,17 @@ def merge():
 
     final_list = []
 
-    for k, v in votes_and_vals:
-        if v[2] in validator_rest:
-            validator_rest[v[2]]['voted'] = k
-            final_list.append(validator_rest[v[2]])
+    if len(votes) == 0:
+        # No votes found, mark all validators as offline
+        for v in validators:
+            if v[2] in validator_rest:
+                validator_rest[v[2]]['voted'] = 'nil-Vote'
+                final_list.append(validator_rest[v[2]])
+    else:
+        for k, v in votes_and_vals:
+            if v[2] in validator_rest:
+                validator_rest[v[2]]['voted'] = k
+                final_list.append(validator_rest[v[2]])
 
     return final_list, proposer, header_info
 
